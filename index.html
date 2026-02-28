@@ -98,18 +98,46 @@ const DigitalClock = () => {
 
 export default function App() {
   // --- STATE ---
-  const [view, setView] = useState('home'); // home, login_gv, login_hs, dashboard_gv, dashboard_hs
-  const [user, setUser] = useState(null); // { role: 'gv' | 'hs' | 'leader', id, name, class }
+  const [view, setView] = useState('home'); 
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('tech6_currentUser')) || null); 
   
-  // Dữ liệu
-  const [students, setStudents] = useState([]); 
-  const [scores, setScores] = useState({}); 
-  const [announcements, setAnnouncements] = useState([]); 
-  const [feedbacks, setFeedbacks] = useState([]); 
-  const [submissions, setSubmissions] = useState([]); // Sản phẩm nộp
+  // Custom Modal State
+  const [modal, setModal] = useState({ isOpen: false, type: 'alert', title: '', message: '', onConfirm: null });
+
+  // Dữ liệu - Khởi tạo từ localStorage để lưu trữ liên tục trên Github Pages
+  const [students, setStudents] = useState(() => JSON.parse(localStorage.getItem('tech6_students')) || []); 
+  const [scores, setScores] = useState(() => JSON.parse(localStorage.getItem('tech6_scores')) || {}); 
+  const [announcements, setAnnouncements] = useState(() => JSON.parse(localStorage.getItem('tech6_announcements')) || []); 
+  const [feedbacks, setFeedbacks] = useState(() => JSON.parse(localStorage.getItem('tech6_feedbacks')) || []); 
+  const [submissions, setSubmissions] = useState(() => JSON.parse(localStorage.getItem('tech6_submissions')) || []);
+
+  // Sync states to localStorage whenever they change
+  useEffect(() => { localStorage.setItem('tech6_currentUser', JSON.stringify(user)); }, [user]);
+  useEffect(() => { localStorage.setItem('tech6_students', JSON.stringify(students)); }, [students]);
+  useEffect(() => { localStorage.setItem('tech6_scores', JSON.stringify(scores)); }, [scores]);
+  useEffect(() => { localStorage.setItem('tech6_announcements', JSON.stringify(announcements)); }, [announcements]);
+  useEffect(() => { localStorage.setItem('tech6_feedbacks', JSON.stringify(feedbacks)); }, [feedbacks]);
+  useEffect(() => { 
+      try {
+          localStorage.setItem('tech6_submissions', JSON.stringify(submissions)); 
+      } catch (e) {
+          console.error("Storage limit exceeded", e);
+          showAlert("Bộ nhớ lưu trữ trình duyệt (localStorage) đã đầy. Hãy xóa bớt các sản phẩm nộp cũ có chứa file đính kèm.", "Cảnh báo bộ nhớ");
+      }
+  }, [submissions]);
 
   // --- HÀM XỬ LÝ CHUNG ---
   
+  const showAlert = (message, title = 'Thông báo') => {
+    setModal({ isOpen: true, type: 'alert', title, message, onConfirm: null });
+  };
+
+  const showConfirm = (message, onConfirm, title = 'Xác nhận') => {
+    setModal({ isOpen: true, type: 'confirm', title, message, onConfirm });
+  };
+
+  const closeModal = () => setModal({ ...modal, isOpen: false });
+
   const handleLoginGV = (username, password) => {
     if (username === 'admin' && password === 'admin') {
       setUser({ role: 'gv', name: 'Cô Nguyễn Thị Ngân Hà' });
@@ -151,11 +179,38 @@ export default function App() {
           if (win) {
               win.document.write(`<iframe src="data:${sub.mimeType};base64,${sub.fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
           } else {
-              alert("Trình duyệt chặn Pop-up. Vui lòng cho phép popup hiển thị để mở tệp tin.");
+              showAlert("Trình duyệt chặn Pop-up. Vui lòng cho phép popup hiển thị để mở tệp tin.");
           }
       } else {
-          alert("Sản phẩm không có file hoặc link đính kèm.");
+          showAlert("Sản phẩm không có file hoặc link đính kèm.");
       }
+  };
+
+  // --- COMPONENT MODAL TUỲ CHỈNH ---
+  const CustomModal = () => {
+    if (!modal.isOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 transform transition-all scale-100 border-4 border-pink-100">
+          <h3 className="text-xl font-bold mb-3 text-pink-600 font-tahoma flex items-center gap-2">
+            {modal.type === 'confirm' ? <Bell size={24} className="text-yellow-500" /> : <Bell size={24} className="text-pink-500" />}
+            {modal.title}
+          </h3>
+          <p className="text-slate-700 mb-8 whitespace-pre-line text-lg">{modal.message}</p>
+          <div className="flex justify-end gap-3">
+            {modal.type === 'confirm' && (
+              <Button3D onClick={closeModal} variant="blue" className="text-sm px-6 py-2">Hủy</Button3D>
+            )}
+            <Button3D onClick={() => {
+              if (modal.onConfirm) modal.onConfirm();
+              closeModal();
+            }} variant="pink" className="text-sm px-6 py-2">
+              {modal.type === 'confirm' ? 'Đồng ý' : 'Đóng'}
+            </Button3D>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // --- SUB-COMPONENTS ---
@@ -200,16 +255,16 @@ export default function App() {
       const uniqueNew = newStudents.filter(ns => !students.some(s => s.id === ns.id));
       setStudents([...students, ...uniqueNew]);
       setImportText('');
-      alert(`Đã thêm ${uniqueNew.length} học sinh vào lớp ${selectedClass}`);
+      showAlert(`Đã thêm ${uniqueNew.length} học sinh vào lớp ${selectedClass}`);
     };
 
     const deleteStudent = (id) => {
-        if(window.confirm('Bạn có chắc muốn xóa học sinh này?')) {
+        showConfirm('Bạn có chắc muốn xóa học sinh này?', () => {
             setStudents(students.filter(s => s.id !== id));
             const newScores = {...scores};
             delete newScores[id];
             setScores(newScores);
-        }
+        });
     }
 
     const updateScore = (studentId, field, value) => {
@@ -231,20 +286,20 @@ export default function App() {
             ...prev
         ]);
         setAnnoTitle(''); setAnnoContent('');
-        alert('Đã gửi thông báo!');
+        showAlert('Đã gửi thông báo!');
     }
 
     const handleSaveFeedback = (id) => {
         setSubmissions(prev => prev.map(s => s.id === id ? { ...s, feedback: feedbackText } : s));
         setFeedbackId(null);
         setFeedbackText('');
-        alert('Đã lưu phản hồi cho sản phẩm!');
+        showAlert('Đã lưu phản hồi cho sản phẩm!');
     };
 
     const handleDeleteSubmission = (id) => {
-        if(window.confirm("Cô có chắc chắn muốn xóa sản phẩm này không?")) {
+        showConfirm("Cô có chắc chắn muốn xóa sản phẩm này không?", () => {
             setSubmissions(prev => prev.filter(s => s.id !== id));
-        }
+        });
     };
 
     const getStats = (classId) => {
@@ -641,14 +696,15 @@ export default function App() {
         if(!msg) return;
         setFeedbacks(prev => [{ id: Date.now(), studentId: user.id, studentName: user.name, classId: user.class, content: msg, date: new Date().toLocaleString('vi-VN') }, ...prev]);
         setMsg('');
-        alert('Đã gửi phản hồi tới Cô!');
+        showAlert('Đã gửi phản hồi tới Cô!');
     }
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            if (file.size > 50 * 1024 * 1024) { 
-                alert("Kích thước tệp quá lớn (Chỉ cho phép tối đa 50MB). Vui lòng nén nhỏ lại hoặc tải lên Drive cá nhân rồi dán Link vào ô kế bên!");
+            // Giảm giới hạn file xuống 2MB vì localStorage chỉ hỗ trợ tối đa ~5MB
+            if (file.size > 2 * 1024 * 1024) { 
+                showAlert("Khi dùng phiên bản Online tĩnh này, kích thước tệp đính kèm tối đa là 2MB để tránh lỗi bộ nhớ. Vui lòng tải lên Drive cá nhân rồi dán Link vào ô kế bên!");
                 e.target.value = null; return;
             }
             setSelectedFile(file);
@@ -657,8 +713,8 @@ export default function App() {
 
     const handleSubmitProduct = async (e) => {
         e.preventDefault();
-        if(!productName) { alert("Vui lòng nhập Tên sản phẩm!"); return; }
-        if(!productLink && !selectedFile) { alert("Vui lòng đính kèm tệp tin HOẶC nhập Link liên kết!"); return; }
+        if(!productName) { showAlert("Vui lòng nhập Tên sản phẩm!"); return; }
+        if(!productLink && !selectedFile) { showAlert("Vui lòng đính kèm tệp tin HOẶC nhập Link liên kết!"); return; }
 
         setIsSubmitting(true);
         let base64Data = null, mimeType = null, fileName = null;
@@ -687,19 +743,20 @@ export default function App() {
             if (GOOGLE_SCRIPT_URL !== 'ĐIỀN_URL_WEB_APP_CỦA_BẠN_VÀO_ĐÂY') {
                 await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
             }
+            // Lưu dữ liệu vào state, useEffect sẽ tự đồng bộ vào localStorage
             setSubmissions(prev => [{ id: Date.now(), ...payload, date: new Date().toLocaleString('vi-VN') }, ...prev]);
             
             setProductName(''); setProductLink(''); setSelectedFile(null);
-            alert('Nộp sản phẩm thành công!');
+            showAlert('Nộp sản phẩm thành công!');
         } catch (error) {
-            alert('Có lỗi xảy ra khi nộp bài. Vui lòng kiểm tra lại kết nối mạng!');
+            showAlert('Có lỗi xảy ra khi nộp bài. Vui lòng kiểm tra lại kết nối mạng!');
         } finally {
             setIsSubmitting(false);
         }
     }
 
     const handleSubmitPeerFeedback = (subId) => {
-        if (!peerComment.trim()) { alert("Vui lòng nhập nội dung nhận xét!"); return; }
+        if (!peerComment.trim()) { showAlert("Vui lòng nhập nội dung nhận xét!"); return; }
         
         setSubmissions(prev => prev.map(s => {
             if (s.id === subId) {
@@ -710,7 +767,7 @@ export default function App() {
         }));
         
         setActivePeerFeedback(null); setPeerComment(''); setPeerRating('Đạt');
-        alert("Đã gửi đánh giá thành công!");
+        showAlert("Đã gửi đánh giá thành công!");
     }
 
     return (
@@ -940,7 +997,7 @@ export default function App() {
                      <div className="bg-yellow-50 p-4 rounded-lg mb-4 text-yellow-800 text-sm">
                          <span className="font-bold">Chức năng Nhóm Trưởng:</span> Bạn có thể nhập điểm cho các bạn trong lớp.
                      </div>
-                     <select className="mb-4 p-2 border rounded" onChange={(e) => alert('Chức năng chọn bài đang xử lý...')}>
+                     <select className="mb-4 p-2 border rounded" onChange={(e) => showAlert('Chức năng chọn bài đang xử lý...')}>
                          <option>Chọn bài học để chấm...</option>
                          {LESSONS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                      </select>
@@ -985,12 +1042,12 @@ export default function App() {
                                      <input type="file" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isSubmitting}/>
                                      <Upload className="mx-auto text-pink-400 mb-2" size={28} />
                                      <p className="text-sm text-pink-700 font-bold">{selectedFile ? selectedFile.name : "Tải tệp tin lên Drive GV"}</p>
-                                     <p className="text-xs text-pink-400 mt-1">(Tối đa 50MB. Hình ảnh, Word, PDF...)</p>
+                                     <p className="text-xs text-pink-400 mt-1">(Tối đa 2MB. Hình ảnh, Word, PDF...)</p>
                                  </div>
                                  <div className="flex items-center justify-center"><span className="font-bold text-gray-400 text-sm">HOẶC</span></div>
                                  <div className="flex-1 flex flex-col justify-center">
                                      <input type="url" className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-pink-400 outline-none text-sm" placeholder="Dán Link Google Drive/Youtube..." value={productLink} onChange={e => setProductLink(e.target.value)} disabled={isSubmitting} />
-                                     <p className="text-xs text-gray-500 mt-2 italic">* Dùng cách dán Link này nếu sản phẩm là Video hoặc File có dung lượng lớn hơn 50MB.</p>
+                                     <p className="text-xs text-gray-500 mt-2 italic">* Dùng cách dán Link này nếu sản phẩm là Video hoặc File có dung lượng lớn hơn 2MB.</p>
                                  </div>
                              </div>
                          </div>
@@ -1117,6 +1174,9 @@ export default function App() {
             @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
           `}</style>
       </footer>
+
+      {/* RENDER MODAL TÙY CHỈNH TẠI ĐÂY */}
+      <CustomModal />
     </div>
   );
 }
