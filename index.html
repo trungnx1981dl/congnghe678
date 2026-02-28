@@ -1,0 +1,1122 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, BookOpen, BarChart2, Bell, MessageSquare, 
+  LogOut, Home, Star, Upload, Send, Plus, Trash2, 
+  Edit3, X, Settings, Atom, Cpu, Trophy, 
+  Library, MessageCircle, ThumbsUp, RefreshCw 
+} from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell 
+} from 'recharts';
+
+// --- CẤU HÌNH & DỮ LIỆU CỐ ĐỊNH ---
+
+const CLASSES = ['6A1', '6A2', '6A3', '6A4', '6A5'];
+const GROUPS = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6'];
+
+const LESSONS = [
+  { id: 'hk1_b1', name: 'Bài 1. Nhà ở đối với con người', term: 1 },
+  { id: 'hk1_b2', name: 'Bài 2. Sử dụng năng lượng trong gia đình', term: 1 },
+  { id: 'hk1_b3', name: 'Bài 3. Ngôi nhà thông minh', term: 1 },
+  { id: 'hk1_da1', name: 'Dự án 1: Ngôi nhà của em', term: 1, type: 'project' },
+  { id: 'hk1_b4', name: 'Bài 4. Thực phẩm và dinh dưỡng', term: 1 },
+  { id: 'hk1_b5', name: 'Bài 5. Bảo quản và chế biến thực phẩm', term: 1 },
+  { id: 'hk2_da2', name: 'Dự án 2. Món ăn cho bữa cơm gia đình', term: 2, type: 'project' },
+  { id: 'hk2_b6', name: 'Bài 6. Các loại vải thường dùng', term: 2 },
+  { id: 'hk2_b7', name: 'Bài 7. Trang phục', term: 2 },
+  { id: 'hk2_b8', name: 'Bài 8. Thời trang', term: 2 },
+  { id: 'hk2_da3', name: 'Dự án 3: Em làm nhà thiết kế thời trang', term: 2, type: 'project' },
+  { id: 'hk2_b9', name: 'Bài 9. Sử dụng đồ dùng điện', term: 2 },
+  { id: 'hk2_b10', name: 'Bài 10. An toàn điện trong gia đình', term: 2 },
+  { id: 'hk2_da4', name: 'Dự án 4: Tiết kiệm trong sử dụng điện', term: 2, type: 'project' },
+];
+
+const RATINGS = ['Tốt', 'Khá', 'Đạt', 'CĐ'];
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#FFBB28', '#FF8042'];
+
+// --- CÁC COMPONENT PHỤ TRỢ ---
+
+const FloatingIcon = ({ icon: Icon, delay = '0s', className = '' }) => (
+  <div className={`absolute animate-float opacity-30 pointer-events-none ${className}`} style={{ animationDelay: delay }}>
+    <Icon size={40} className="text-pink-600" />
+  </div>
+);
+
+const Button3D = ({ children, onClick, className = '', variant = 'pink', type="button", disabled = false }) => {
+  const variants = {
+    pink: 'bg-pink-400 hover:bg-pink-500 border-pink-600 text-white',
+    blue: 'bg-sky-400 hover:bg-sky-500 border-sky-600 text-white',
+    green: 'bg-emerald-400 hover:bg-emerald-500 border-emerald-600 text-white',
+    red: 'bg-rose-400 hover:bg-rose-500 border-rose-600 text-white',
+    gold: 'bg-yellow-400 hover:bg-yellow-500 border-yellow-600 text-white',
+    teal: 'bg-teal-400 hover:bg-teal-500 border-teal-600 text-white'
+  };
+  
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`
+        px-4 py-2 rounded-xl font-bold transition-all transform active:scale-95 active:translate-y-1 
+        border-b-4 active:border-b-0 shadow-lg ${variants[variant] || variants.pink} 
+        ${disabled ? 'opacity-50 cursor-not-allowed active:scale-100 active:translate-y-0 active:border-b-4' : ''}
+        ${className}
+      `}
+    >
+      {children}
+    </button>
+  );
+};
+
+const DigitalClock = () => {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getGreeting = () => {
+    const hour = time.getHours();
+    if (hour < 12) return "Chào buổi sáng! Chúc cô và các em tràn đầy năng lượng.";
+    if (hour < 18) return "Chào buổi chiều! Cố gắng hoàn thành tốt bài học nhé.";
+    return "Chào buổi tối! Chúc mọi người nghỉ ngơi thư giãn.";
+  };
+
+  return (
+    <div className="flex flex-col items-end text-right mr-4 hidden md:flex">
+      <div className="text-2xl font-bold font-mono text-pink-600 drop-shadow-sm">
+        {time.toLocaleTimeString('vi-VN')}
+      </div>
+      <div className="text-sm italic text-slate-600">{getGreeting()}</div>
+    </div>
+  );
+};
+
+// --- MAIN APP ---
+
+export default function App() {
+  // --- STATE ---
+  const [view, setView] = useState('home'); // home, login_gv, login_hs, dashboard_gv, dashboard_hs
+  const [user, setUser] = useState(null); // { role: 'gv' | 'hs' | 'leader', id, name, class }
+  
+  // Dữ liệu
+  const [students, setStudents] = useState([]); 
+  const [scores, setScores] = useState({}); 
+  const [announcements, setAnnouncements] = useState([]); 
+  const [feedbacks, setFeedbacks] = useState([]); 
+  const [submissions, setSubmissions] = useState([]); // Sản phẩm nộp
+
+  // --- HÀM XỬ LÝ CHUNG ---
+  
+  const handleLoginGV = (username, password) => {
+    if (username === 'admin' && password === 'admin') {
+      setUser({ role: 'gv', name: 'Cô Nguyễn Thị Ngân Hà' });
+      setView('dashboard_gv');
+      return true;
+    }
+    return false;
+  };
+
+  const handleLoginHS = (code, password) => {
+    const student = students.find(s => s.id === code);
+    if (student) {
+      if (password === '123456') {
+         setUser({ ...student, role: 'leader' });
+      } else {
+         setUser({ ...student, role: 'hs' });
+      }
+      setView('dashboard_hs');
+      return true;
+    }
+    if (students.length === 0 && code === 'demo') {
+       setUser({ id: 'demo', name: 'Học sinh Demo', class: '6A1', role: 'leader' }); // Demo as leader
+       setView('dashboard_hs');
+       return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+    setView('home');
+  };
+
+  const handleViewSubmission = (sub) => {
+      if (sub.link) {
+          window.open(sub.link, '_blank', 'noopener,noreferrer');
+      } else if (sub.fileData) {
+          const win = window.open();
+          if (win) {
+              win.document.write(`<iframe src="data:${sub.mimeType};base64,${sub.fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+          } else {
+              alert("Trình duyệt chặn Pop-up. Vui lòng cho phép popup hiển thị để mở tệp tin.");
+          }
+      } else {
+          alert("Sản phẩm không có file hoặc link đính kèm.");
+      }
+  };
+
+  // --- SUB-COMPONENTS ---
+
+  const HomeScreen = () => (
+    <div className="flex flex-col items-center justify-center min-h-[80vh] relative overflow-hidden p-8 text-center">
+      <FloatingIcon icon={Atom} className="top-10 left-10" delay="0s" />
+      <FloatingIcon icon={Cpu} className="top-40 right-20" delay="1s" />
+      <FloatingIcon icon={Settings} className="bottom-20 left-1/4" delay="2s" />
+      <FloatingIcon icon={BookOpen} className="bottom-10 right-10" delay="3s" />
+
+      <div className="z-10 bg-white/60 backdrop-blur-sm p-10 rounded-3xl shadow-2xl border-4 border-white/50 max-w-4xl w-full">
+        <h1 className="text-4xl md:text-6xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 animate-pulse font-fancy" style={{ fontFamily: '"Dancing Script", cursive, "Tahoma"' }}>
+          Chương trình theo dõi quá trình học tập <br/> môn Công nghệ 6
+        </h1>
+        
+        <div className="font-tahoma italic text-slate-800 text-lg leading-relaxed bg-pink-50/80 p-6 rounded-xl border border-pink-200 shadow-inner">
+          "Chương trình Hồ sơ học tập môn Công nghệ nhằm theo dõi toàn bộ quá trình học tập của mỗi học sinh qua mỗi bài học. Bằng cách tích luỹ đánh giá thường xuyên qua mỗi bài học, giúp giáo viên tổng hợp kết quả cuối mỗi kì, từ đó theo dõi được toàn bộ quá trình phát triển năng lực của học sinh trong môn học"
+        </div>
+      </div>
+    </div>
+  );
+
+  const TeacherDashboard = () => {
+    const [activeTab, setActiveTab] = useState('students');
+    const [selectedClass, setSelectedClass] = useState('6A1');
+    const [importText, setImportText] = useState('');
+    const [selectedLesson, setSelectedLesson] = useState(LESSONS[0].id);
+
+    // Feedback states for submissions
+    const [feedbackId, setFeedbackId] = useState(null);
+    const [feedbackText, setFeedbackText] = useState('');
+
+    const handleImport = () => {
+      const lines = importText.trim().split('\n');
+      const newStudents = lines.map(line => {
+        const parts = line.split(/[\t,]+/); 
+        if (parts.length >= 2) return { id: parts[0].trim(), name: parts[1].trim(), class: selectedClass };
+        return null;
+      }).filter(s => s !== null);
+
+      const uniqueNew = newStudents.filter(ns => !students.some(s => s.id === ns.id));
+      setStudents([...students, ...uniqueNew]);
+      setImportText('');
+      alert(`Đã thêm ${uniqueNew.length} học sinh vào lớp ${selectedClass}`);
+    };
+
+    const deleteStudent = (id) => {
+        if(window.confirm('Bạn có chắc muốn xóa học sinh này?')) {
+            setStudents(students.filter(s => s.id !== id));
+            const newScores = {...scores};
+            delete newScores[id];
+            setScores(newScores);
+        }
+    }
+
+    const updateScore = (studentId, field, value) => {
+      setScores(prev => ({
+        ...prev,
+        [studentId]: {
+          ...prev[studentId],
+          [selectedLesson]: { ...prev[studentId]?.[selectedLesson], [field]: value }
+        }
+      }));
+    };
+
+    const [annoTitle, setAnnoTitle] = useState('');
+    const [annoContent, setAnnoContent] = useState('');
+    const sendAnnouncement = () => {
+        if (!annoTitle || !annoContent) return;
+        setAnnouncements(prev => [
+            { id: Date.now(), classId: selectedClass, title: annoTitle, content: annoContent, date: new Date().toLocaleDateString('vi-VN') },
+            ...prev
+        ]);
+        setAnnoTitle(''); setAnnoContent('');
+        alert('Đã gửi thông báo!');
+    }
+
+    const handleSaveFeedback = (id) => {
+        setSubmissions(prev => prev.map(s => s.id === id ? { ...s, feedback: feedbackText } : s));
+        setFeedbackId(null);
+        setFeedbackText('');
+        alert('Đã lưu phản hồi cho sản phẩm!');
+    };
+
+    const handleDeleteSubmission = (id) => {
+        if(window.confirm("Cô có chắc chắn muốn xóa sản phẩm này không?")) {
+            setSubmissions(prev => prev.filter(s => s.id !== id));
+        }
+    };
+
+    const getStats = (classId) => {
+        const classStudents = students.filter(s => s.class === classId);
+        if (classStudents.length === 0) return null;
+        
+        let totalScore = 0, count = 0;
+        let ratings = { 'Tốt': 0, 'Khá': 0, 'Đạt': 0, 'CĐ': 0 };
+        let max = 0, min = 10;
+
+        classStudents.forEach(s => {
+            const sScores = scores[s.id];
+            if (sScores) {
+                Object.values(sScores).forEach(lesson => {
+                    if (lesson.individual) {
+                        const val = parseFloat(lesson.individual);
+                        if (!isNaN(val)) {
+                            totalScore += val; count++;
+                            if (val > max) max = val;
+                            if (val < min) min = val;
+                        }
+                    }
+                    if (lesson.rating && ratings[lesson.rating] !== undefined) ratings[lesson.rating]++;
+                });
+            }
+        });
+        const avg = count > 0 ? (totalScore / count).toFixed(1) : 0;
+        return { avg, max: count > 0 ? max : 0, min: count > 0 ? min : 0, ratings };
+    }
+
+    return (
+      <div className="p-4 md:p-8 bg-white/80 rounded-3xl shadow-xl min-h-screen">
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-pink-200 pb-4">
+          {[
+            { id: 'students', label: '1. Thông tin HS', icon: Users, variant: 'blue' },
+            { id: 'tracking', label: '2. Theo dõi học tập', icon: Edit3, variant: 'blue' },
+            { id: 'notify', label: '3. Thông báo', icon: Bell, variant: 'blue' },
+            { id: 'stats', label: '4. Thống kê', icon: BarChart2, variant: 'blue' },
+            { id: 'feedback', label: '5. Phản hồi HS', icon: MessageSquare, variant: 'blue' },
+            { id: 'submissions', label: '6. Xem SP Nộp', icon: Trophy, variant: 'teal' },
+            { id: 'cross', label: 'Chấm chéo nhóm', icon: Users, variant: 'blue' },
+          ].map(tab => (
+            <Button3D key={tab.id} onClick={() => setActiveTab(tab.id)} variant={activeTab === tab.id ? 'pink' : tab.variant} className="text-sm flex items-center gap-2">
+              <tab.icon size={16} /> {tab.label}
+            </Button3D>
+          ))}
+        </div>
+
+        {/* --- TAB 1: THÔNG TIN HS --- */}
+        {activeTab === 'students' && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+               {CLASSES.map(cls => (
+                   <div key={cls} onClick={() => setSelectedClass(cls)}
+                    className={`cursor-pointer p-4 rounded-xl shadow-md transform transition-all border-2 ${selectedClass === cls ? 'border-pink-500 bg-pink-100 scale-105' : 'border-white bg-white hover:scale-105'}`}>
+                       <h3 className="text-xl font-bold text-center text-pink-600">{cls}</h3>
+                       <p className="text-center text-xs text-gray-500">{students.filter(s => s.class === cls).length} HS</p>
+                   </div>
+               ))}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl border border-pink-200 shadow-inner">
+                <h3 className="font-bold text-lg mb-4 text-pink-700 flex items-center gap-2"><Plus size={20}/> Thêm học sinh vào lớp {selectedClass}</h3>
+                <div className="flex flex-col md:flex-row gap-4">
+                    <textarea 
+                        className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-pink-300 font-mono text-sm" rows={5}
+                        placeholder="Dán dữ liệu Excel vào đây (Mã HS [tab] Tên HS)...&#10;Ví dụ:&#10;HS001 Nguyễn Văn A&#10;HS002 Trần Thị B"
+                        value={importText} onChange={(e) => setImportText(e.target.value)}
+                    />
+                    <div className="flex flex-col justify-end">
+                         <Button3D onClick={handleImport} variant="green">Lưu danh sách</Button3D>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                {students.filter(s => s.class === selectedClass).map(s => (
+                    <div key={s.id} className="flex justify-between items-center bg-white p-3 rounded-lg shadow border border-gray-100 group">
+                        <div>
+                            <span className="font-bold text-pink-600 block">{s.id}</span>
+                            <span className="text-slate-700">{s.name}</span>
+                        </div>
+                        <button onClick={() => deleteStudent(s.id)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
+                ))}
+                {students.filter(s => s.class === selectedClass).length === 0 && (
+                    <div className="col-span-full text-center text-gray-400 italic py-8">Chưa có học sinh nào. Hãy nhập dữ liệu.</div>
+                )}
+            </div>
+          </div>
+        )}
+
+        {/* --- TAB 2: THEO DÕI HỌC TẬP --- */}
+        {activeTab === 'tracking' && (
+           <div className="space-y-4 animate-fadeIn">
+               <div className="flex flex-wrap gap-4 items-center bg-blue-50 p-4 rounded-xl">
+                   <label className="font-bold text-slate-700">Chọn lớp:</label>
+                   <select className="p-2 rounded border border-blue-300" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                       {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                   </select>
+
+                   <label className="font-bold text-slate-700 ml-4">Chọn bài học:</label>
+                   <select className="p-2 rounded border border-blue-300 max-w-xs" value={selectedLesson} onChange={e => setSelectedLesson(e.target.value)}>
+                       <optgroup label="Học kì 1">{LESSONS.filter(l => l.term === 1).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>
+                       <optgroup label="Học kì 2">{LESSONS.filter(l => l.term === 2).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>
+                   </select>
+               </div>
+
+               <div className="overflow-x-auto bg-white rounded-xl shadow border border-gray-200">
+                   <table className="w-full text-left border-collapse">
+                       <thead>
+                           <tr className="bg-pink-100 text-pink-800">
+                               <th className="p-3 border-b border-pink-200">Mã HS</th>
+                               <th className="p-3 border-b border-pink-200">Họ và Tên</th>
+                               <th className="p-3 border-b border-pink-200 w-24">Điểm CN</th>
+                               <th className="p-3 border-b border-pink-200 w-24">Điểm Nhóm</th>
+                               <th className="p-3 border-b border-pink-200 w-32">Xếp loại</th>
+                           </tr>
+                       </thead>
+                       <tbody>
+                           {students.filter(s => s.class === selectedClass).map(s => {
+                               const score = scores[s.id]?.[selectedLesson] || {};
+                               return (
+                                   <tr key={s.id} className="hover:bg-pink-50 transition-colors border-b border-gray-100">
+                                       <td className="p-3 font-mono text-sm">{s.id}</td>
+                                       <td className="p-3 font-medium">{s.name}</td>
+                                       <td className="p-3"><input type="number" max="10" min="0" className="w-full p-1 border rounded text-center" value={score.individual || ''} onChange={(e) => updateScore(s.id, 'individual', e.target.value)}/></td>
+                                       <td className="p-3"><input type="number" max="10" min="0" className="w-full p-1 border rounded text-center" value={score.group || ''} onChange={(e) => updateScore(s.id, 'group', e.target.value)}/></td>
+                                       <td className="p-3">
+                                           <select className="w-full p-1 border rounded text-sm outline-none" value={score.rating || ''} onChange={(e) => updateScore(s.id, 'rating', e.target.value)}>
+                                               <option value="">--</option>
+                                               {RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
+                                           </select>
+                                       </td>
+                                   </tr>
+                               );
+                           })}
+                       </tbody>
+                   </table>
+               </div>
+           </div>
+        )}
+
+        {/* --- TAB 3: THÔNG BÁO --- */}
+        {activeTab === 'notify' && (
+            <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
+                <div className="bg-white p-6 rounded-2xl shadow-lg border border-pink-100">
+                    <h3 className="text-xl font-bold text-pink-600 mb-4">Tạo thông báo mới</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-semibold mb-1">Gửi tới lớp:</label>
+                            <select className="w-full p-2 border rounded-lg" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                                {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1">Tiêu đề:</label>
+                            <input type="text" className="w-full p-2 border rounded-lg" value={annoTitle} onChange={e => setAnnoTitle(e.target.value)} placeholder="VD: Nhắc nhở nộp bài tập..." />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1">Nội dung:</label>
+                            <textarea className="w-full p-2 border rounded-lg" rows={4} value={annoContent} onChange={e => setAnnoContent(e.target.value)} placeholder="Nội dung thông báo..." />
+                        </div>
+                        <Button3D onClick={sendAnnouncement} className="w-full flex justify-center items-center gap-2">
+                            <Send size={18} /> Gửi thông báo
+                        </Button3D>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* --- TAB 4: THỐNG KÊ --- */}
+        {activeTab === 'stats' && (
+            <div className="space-y-8 animate-fadeIn">
+                <div className="flex gap-4 bg-purple-50 p-4 rounded-xl">
+                     <select className="p-2 rounded border" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                       {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                     </select>
+                     <div className="flex-1 text-right italic text-purple-700">Dữ liệu tự động cập nhật từ điểm số</div>
+                </div>
+
+                {(() => {
+                    const stats = getStats(selectedClass);
+                    if (!stats) return <div className="text-center p-10">Chưa có dữ liệu thống kê cho lớp này.</div>;
+                    const pieData = Object.keys(stats.ratings).map(k => ({ name: k, value: stats.ratings[k] }));
+                    const barData = students.filter(s => s.class === selectedClass).map(s => {
+                        let sum = 0, n = 0;
+                        if(scores[s.id]) {
+                             Object.values(scores[s.id]).forEach(v => {
+                                 if(v.individual) { sum += parseFloat(v.individual); n++; }
+                             });
+                        }
+                        return { name: s.name.split(' ').pop(), score: n > 0 ? (sum/n).toFixed(1) : 0 };
+                    });
+
+                    return (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                             <div className="col-span-full flex justify-around flex-wrap gap-4">
+                                 <div className="bg-gradient-to-r from-pink-400 to-rose-500 text-white p-4 rounded-lg shadow-lg w-40 text-center relative overflow-hidden">
+                                     <div className="text-xs uppercase tracking-wider opacity-80">Trung Bình</div>
+                                     <div className="text-3xl font-bold">{stats.avg}</div>
+                                     <Star className="absolute -bottom-2 -right-2 opacity-30 w-16 h-16" />
+                                 </div>
+                                 <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-white p-4 rounded-lg shadow-lg w-40 text-center">
+                                     <div className="text-xs uppercase tracking-wider opacity-80">Cao Nhất</div>
+                                     <div className="text-3xl font-bold">{stats.max}</div>
+                                 </div>
+                                 <div className="bg-gradient-to-r from-blue-400 to-cyan-500 text-white p-4 rounded-lg shadow-lg w-40 text-center">
+                                     <div className="text-xs uppercase tracking-wider opacity-80">Thấp Nhất</div>
+                                     <div className="text-3xl font-bold">{stats.min}</div>
+                                 </div>
+                             </div>
+
+                             <div className="bg-white p-6 rounded-2xl shadow border border-gray-100">
+                                 <h4 className="text-center font-bold text-gray-700 mb-4">Phân bố Xếp loại</h4>
+                                 <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={pieData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
+                                                {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                            </Pie>
+                                            <Tooltip /><Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                 </div>
+                             </div>
+
+                             <div className="bg-white p-6 rounded-2xl shadow border border-gray-100">
+                                 <h4 className="text-center font-bold text-gray-700 mb-4">Điểm TB học sinh (Mẫu)</h4>
+                                 <div className="h-64">
+                                     <ResponsiveContainer width="100%" height="100%">
+                                         <BarChart data={barData.slice(0, 10)}>
+                                             <CartesianGrid strokeDasharray="3 3" />
+                                             <XAxis dataKey="name" />
+                                             <YAxis domain={[0, 10]} />
+                                             <Tooltip />
+                                             <Bar dataKey="score" fill="#F472B6" radius={[5, 5, 0, 0]} />
+                                         </BarChart>
+                                     </ResponsiveContainer>
+                                 </div>
+                             </div>
+                             
+                             <div className="col-span-full bg-yellow-50 p-4 rounded-xl border border-yellow-200 text-yellow-800 italic">
+                                 <span className="font-bold">Nhận xét tự động: </span> 
+                                 {parseFloat(stats.avg) >= 8 ? "Lớp có thành tích học tập Rất Tốt, cần duy trì phong độ." : 
+                                  parseFloat(stats.avg) >= 6.5 ? "Lớp học Khá, tuy nhiên cần cải thiện thêm kỹ năng nhóm." : 
+                                  "Cần đôn đốc học sinh làm bài tập và tham gia dự án tích cực hơn."}
+                             </div>
+                        </div>
+                    );
+                })()}
+            </div>
+        )}
+
+        {/* --- TAB 5: PHẢN HỒI --- */}
+        {activeTab === 'feedback' && (
+            <div className="animate-fadeIn bg-white rounded-xl shadow overflow-hidden">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-100">
+                        <tr><th className="p-3">Thời gian</th><th className="p-3">Học sinh</th><th className="p-3">Lớp</th><th className="p-3">Nội dung</th></tr>
+                    </thead>
+                    <tbody>
+                        {feedbacks.map(fb => (
+                            <tr key={fb.id} className="border-b">
+                                <td className="p-3 text-sm text-gray-500">{fb.date}</td><td className="p-3 font-medium">{fb.studentName}</td><td className="p-3">{fb.classId}</td><td className="p-3 text-gray-700">{fb.content}</td>
+                            </tr>
+                        ))}
+                        {feedbacks.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-gray-400">Chưa có phản hồi nào</td></tr>}
+                    </tbody>
+                </table>
+            </div>
+        )}
+
+        {/* --- TAB 6: XEM SẢN PHẨM NỘP --- */}
+        {activeTab === 'submissions' && (
+            <div className="space-y-6 animate-fadeIn">
+                <div className="flex flex-wrap gap-4 items-center bg-teal-50 p-4 rounded-xl border border-teal-200">
+                   <label className="font-bold text-teal-800">Chọn lớp:</label>
+                   <select className="p-2 rounded border border-teal-300" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                       {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                   </select>
+
+                   <label className="font-bold text-teal-800 ml-4">Chọn bài học:</label>
+                   <select className="p-2 rounded border border-teal-300 max-w-xs" value={selectedLesson} onChange={e => setSelectedLesson(e.target.value)}>
+                       <optgroup label="Học kì 1">{LESSONS.filter(l => l.term === 1).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>
+                       <optgroup label="Học kì 2">{LESSONS.filter(l => l.term === 2).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>
+                   </select>
+                </div>
+
+                <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-100">
+                    <table className="w-full text-left">
+                        <thead className="bg-teal-100 text-teal-800">
+                            <tr>
+                                <th className="p-3">Thời gian</th><th className="p-3">Học sinh / Nhóm</th><th className="p-3">Tên Sản Phẩm</th>
+                                <th className="p-3 text-center">Loại</th><th className="p-3 w-1/4">Phản hồi của GV</th><th className="p-3 text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {submissions.filter(s => s.classId === selectedClass && s.lessonId === selectedLesson).map(sub => (
+                                <tr key={sub.id} className="border-b hover:bg-teal-50 transition-colors">
+                                    <td className="p-3 text-sm text-gray-500">{sub.date}</td>
+                                    <td className="p-3 font-medium">{sub.studentName} (Nhóm {sub.group})</td>
+                                    <td className="p-3 text-teal-700 font-bold">{sub.productName}</td>
+                                    <td className="p-3 text-center"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600 border border-gray-200">{sub.productType}</span></td>
+                                    <td className="p-3 text-sm">
+                                        {feedbackId === sub.id ? (
+                                            <div className="flex flex-col xl:flex-row gap-1">
+                                                <input type="text" className="w-full p-1 border rounded outline-none focus:border-pink-500" value={feedbackText} onChange={e => setFeedbackText(e.target.value)} placeholder="Nhập phản hồi..." />
+                                                <div className="flex gap-1">
+                                                    <button onClick={() => handleSaveFeedback(sub.id)} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Lưu</button>
+                                                    <button onClick={() => setFeedbackId(null)} className="bg-gray-400 text-white px-2 py-1 rounded text-xs">Hủy</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-700 italic">{sub.feedback || <span className="text-gray-400">Chưa có phản hồi</span>}</span>
+                                        )}
+                                    </td>
+                                    <td className="p-3 text-center flex flex-wrap justify-center gap-1">
+                                        <Button3D onClick={() => handleViewSubmission(sub)} variant="teal" className="text-xs px-2 py-1">Xem</Button3D>
+                                        <Button3D onClick={() => { setFeedbackId(sub.id); setFeedbackText(sub.feedback || ''); }} variant="blue" className="text-xs px-2 py-1">Phản hồi</Button3D>
+                                        <Button3D onClick={() => handleDeleteSubmission(sub.id)} variant="red" className="text-xs px-2 py-1">Xóa</Button3D>
+                                    </td>
+                                </tr>
+                            ))}
+                            {submissions.filter(s => s.classId === selectedClass && s.lessonId === selectedLesson).length === 0 && (
+                                <tr><td colSpan="6" className="p-8 text-center text-gray-400 italic">Chưa có sản phẩm nào được nộp.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+        
+        {/* --- MENU CHẤM CHÉO NHÓM --- */}
+        {activeTab === 'cross' && (
+             <div className="animate-fadeIn space-y-6">
+                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                    <h3 className="font-bold text-orange-800 mb-2">Chấm điểm chéo nhóm</h3>
+                    <div className="flex gap-4">
+                        <select className="p-2 border rounded" value={selectedLesson} onChange={e => setSelectedLesson(e.target.value)}>
+                            {LESSONS.filter(l => l.type === 'project').map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {GROUPS.map(group => (
+                        <div key={group} className="bg-white p-4 rounded-xl shadow-lg border-t-4 border-orange-400">
+                            <h4 className="font-bold text-lg mb-2 text-center text-orange-600">Nhóm {group} chấm:</h4>
+                            <div className="space-y-2">
+                                {GROUPS.filter(g => g !== group).map(target => (
+                                    <div key={target} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                                        <span>Nhóm {target}</span><input type="number" min="0" max="10" className="w-16 p-1 border rounded text-center" placeholder="Điểm"/>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             </div>
+        )}
+      </div>
+    );
+  };
+
+  const StudentDashboard = () => {
+    const [tab, setTab] = useState('results');
+    const [msg, setMsg] = useState('');
+    
+    // States for Submitting Work
+    const [submitLesson, setSubmitLesson] = useState(LESSONS[0].id);
+    const [submitGroup, setSubmitGroup] = useState(GROUPS[0]);
+    const [productName, setProductName] = useState('');
+    const [productType, setProductType] = useState('Hình ảnh');
+    const [productLink, setProductLink] = useState(''); 
+    const [selectedFile, setSelectedFile] = useState(null); 
+    const [isSubmitting, setIsSubmitting] = useState(false); 
+
+    // States for Library (Thư viện lớp)
+    const [libraryLesson, setLibraryLesson] = useState(LESSONS[0].id);
+    const [activePeerFeedback, setActivePeerFeedback] = useState(null);
+    const [peerRating, setPeerRating] = useState('Đạt');
+    const [peerComment, setPeerComment] = useState('');
+
+    const PRODUCT_TYPES = ['Hình ảnh', 'Video', 'Link', 'Tài liệu (Word)', 'Tài liệu (Excel)', 'Tài liệu (PowerPoint)', 'Tài liệu (PDF)'];
+    const myScores = scores[user.id] || {};
+    let good = 0, fair = 0, pass = 0;
+    Object.values(myScores).forEach(s => {
+        if (s.rating === 'Tốt') good++; else if (s.rating === 'Khá') fair++; else if (s.rating === 'Đạt') pass++;
+    });
+
+    const sendFeedback = () => {
+        if(!msg) return;
+        setFeedbacks(prev => [{ id: Date.now(), studentId: user.id, studentName: user.name, classId: user.class, content: msg, date: new Date().toLocaleString('vi-VN') }, ...prev]);
+        setMsg('');
+        alert('Đã gửi phản hồi tới Cô!');
+    }
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (file.size > 50 * 1024 * 1024) { 
+                alert("Kích thước tệp quá lớn (Chỉ cho phép tối đa 50MB). Vui lòng nén nhỏ lại hoặc tải lên Drive cá nhân rồi dán Link vào ô kế bên!");
+                e.target.value = null; return;
+            }
+            setSelectedFile(file);
+        }
+    };
+
+    const handleSubmitProduct = async (e) => {
+        e.preventDefault();
+        if(!productName) { alert("Vui lòng nhập Tên sản phẩm!"); return; }
+        if(!productLink && !selectedFile) { alert("Vui lòng đính kèm tệp tin HOẶC nhập Link liên kết!"); return; }
+
+        setIsSubmitting(true);
+        let base64Data = null, mimeType = null, fileName = null;
+
+        if (selectedFile) {
+            const toBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+            base64Data = await toBase64(selectedFile);
+            mimeType = selectedFile.type;
+            fileName = selectedFile.name;
+        }
+
+        const payload = {
+            lessonId: submitLesson, classId: user.class, studentId: user.id, studentName: user.name,
+            group: submitGroup, productName, productType, link: productLink,
+            fileData: base64Data, mimeType: mimeType, fileName: fileName, peerFeedbacks: []
+        };
+
+        const GOOGLE_SCRIPT_URL = 'ĐIỀN_URL_WEB_APP_CỦA_BẠN_VÀO_ĐÂY'; 
+        
+        try {
+            if (GOOGLE_SCRIPT_URL !== 'ĐIỀN_URL_WEB_APP_CỦA_BẠN_VÀO_ĐÂY') {
+                await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+            }
+            setSubmissions(prev => [{ id: Date.now(), ...payload, date: new Date().toLocaleString('vi-VN') }, ...prev]);
+            
+            setProductName(''); setProductLink(''); setSelectedFile(null);
+            alert('Nộp sản phẩm thành công!');
+        } catch (error) {
+            alert('Có lỗi xảy ra khi nộp bài. Vui lòng kiểm tra lại kết nối mạng!');
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    const handleSubmitPeerFeedback = (subId) => {
+        if (!peerComment.trim()) { alert("Vui lòng nhập nội dung nhận xét!"); return; }
+        
+        setSubmissions(prev => prev.map(s => {
+            if (s.id === subId) {
+                const newFeedback = { id: Date.now(), studentId: user.id, studentName: user.name, rating: peerRating, comment: peerComment, date: new Date().toLocaleString('vi-VN') };
+                return { ...s, peerFeedbacks: [...(s.peerFeedbacks || []), newFeedback] };
+            }
+            return s;
+        }));
+        
+        setActivePeerFeedback(null); setPeerComment(''); setPeerRating('Đạt');
+        alert("Đã gửi đánh giá thành công!");
+    }
+
+    return (
+      <div className="max-w-4xl mx-auto p-4 md:p-8 bg-pink-50/50 min-h-screen rounded-3xl">
+         {/* Header HS */}
+         <div className="flex flex-col md:flex-row items-center gap-6 mb-8 bg-white p-6 rounded-3xl shadow-lg border-2 border-pink-100 transform hover:scale-[1.01] transition-transform">
+             <div className="relative">
+                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-pink-300 to-blue-300 flex items-center justify-center text-3xl font-bold text-white shadow-inner">
+                     {user.name.charAt(0)}
+                 </div>
+                 <div className="absolute bottom-0 right-0 bg-white p-1 rounded-full shadow cursor-pointer text-pink-500 hover:text-pink-700">
+                     <Upload size={16} />
+                 </div>
+             </div>
+             <div className="text-center md:text-left">
+                 <h2 className="text-2xl font-bold font-fancy text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600 animate-pulse">
+                     {user.name}
+                 </h2>
+                 <p className="text-slate-500 font-bold">Lớp: {user.class} | MSSV: {user.id}</p>
+                 <p className="text-sm text-pink-400 italic mt-1">"Hôm nay em đã cố gắng hết mình chưa?"</p>
+             </div>
+             {user.role === 'leader' && (
+                 <div className="ml-auto bg-yellow-100 text-yellow-800 px-4 py-2 rounded-full font-bold text-sm shadow-sm border border-yellow-300 flex items-center gap-2">
+                     <Star size={16} fill="orange" /> Nhóm Trưởng
+                 </div>
+             )}
+         </div>
+
+         {/* Navigation */}
+         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+             <Button3D onClick={() => setTab('results')} variant={tab === 'results' ? 'pink' : 'blue'} className="whitespace-nowrap">Kết quả học tập</Button3D>
+             <Button3D onClick={() => setTab('notify')} variant={tab === 'notify' ? 'pink' : 'blue'} className="whitespace-nowrap">Thông báo ({announcements.filter(a => a.classId === user.class).length})</Button3D>
+             <Button3D onClick={() => setTab('feedback')} variant={tab === 'feedback' ? 'pink' : 'blue'} className="whitespace-nowrap">Phản hồi GV</Button3D>
+             <Button3D onClick={() => setTab('library')} variant={tab === 'library' ? 'pink' : 'blue'} className="whitespace-nowrap">Thư viện lớp</Button3D>
+             {user.role === 'leader' && (
+                 <>
+                     <Button3D onClick={() => setTab('grading')} variant={tab === 'grading' ? 'red' : 'green'} className="whitespace-nowrap">Chấm điểm nhóm</Button3D>
+                     <Button3D onClick={() => setTab('submit')} variant={tab === 'submit' ? 'gold' : 'blue'} className="whitespace-nowrap">Nộp bài</Button3D>
+                 </>
+             )}
+         </div>
+
+         {/* Content */}
+         <div className="bg-white p-6 rounded-2xl shadow-xl min-h-[400px]">
+             {tab === 'results' && (
+                 <div className="space-y-6 animate-fadeIn">
+                     <div className="grid grid-cols-3 gap-4 mb-6">
+                         <div className="bg-pink-100 p-3 rounded-xl text-center border border-pink-200">
+                             <div className="text-2xl font-bold text-pink-600">{good}</div><div className="text-xs text-pink-400 font-bold">Lần Tốt</div>
+                         </div>
+                         <div className="bg-blue-100 p-3 rounded-xl text-center border border-blue-200">
+                             <div className="text-2xl font-bold text-blue-600">{fair}</div><div className="text-xs text-blue-400 font-bold">Lần Khá</div>
+                         </div>
+                         <div className="bg-yellow-100 p-3 rounded-xl text-center border border-yellow-200">
+                             <div className="text-2xl font-bold text-yellow-600">{pass}</div><div className="text-xs text-yellow-400 font-bold">Lần Đạt</div>
+                         </div>
+                     </div>
+
+                     <h3 className="font-bold text-lg text-slate-700 border-l-4 border-pink-500 pl-3">Bảng điểm chi tiết</h3>
+                     <div className="overflow-x-auto">
+                        <table className="w-full text-left mt-2 border-collapse">
+                            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                                <tr><th className="p-3">Bài học</th><th className="p-3 text-center">Điểm CN</th><th className="p-3 text-center">Điểm Nhóm</th><th className="p-3 text-center">Xếp loại</th></tr>
+                            </thead>
+                            <tbody className="text-sm">
+                                {LESSONS.map(l => {
+                                    const s = myScores[l.id];
+                                    return (
+                                        <tr key={l.id} className="border-b hover:bg-pink-50 transition-colors">
+                                            <td className="p-3 font-medium text-slate-700">{l.name}</td>
+                                            <td className="p-3 text-center font-bold text-pink-600">{s?.individual || '-'}</td>
+                                            <td className="p-3 text-center font-bold text-blue-600">{s?.group || '-'}</td>
+                                            <td className="p-3 text-center">
+                                                {s?.rating && (
+                                                    <span className={`px-2 py-1 rounded-full text-xs text-white 
+                                                        ${s.rating === 'Tốt' ? 'bg-green-500' : s.rating === 'Khá' ? 'bg-blue-400' : s.rating === 'Đạt' ? 'bg-yellow-400' : 'bg-gray-400'}`}>
+                                                        {s.rating}
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                     </div>
+
+                     {/* Bảng sản phẩm nộp & phản hồi GV */}
+                     <h3 className="font-bold text-lg text-slate-700 border-l-4 border-pink-500 pl-3 mt-8 mb-4">Sản phẩm Lớp đã nộp</h3>
+                     <div className="overflow-x-auto">
+                        <table className="w-full text-left border-separate border-spacing-y-2">
+                            <thead className="bg-teal-50 text-xs uppercase text-teal-700">
+                                <tr><th className="p-3">Bài học</th><th className="p-3">Nhóm / Người nộp</th><th className="p-3">Tên Sản Phẩm</th><th className="p-3">Phản hồi của GV</th><th className="p-3 text-center">Xem</th></tr>
+                            </thead>
+                            <tbody className="text-sm">
+                                {submissions.filter(s => s.classId === user.class).map(sub => (
+                                    <tr key={sub.id} className="border-b hover:bg-teal-50 bg-white shadow-sm">
+                                        <td className="p-3 font-medium text-slate-700">{LESSONS.find(l => l.id === sub.lessonId)?.name}</td>
+                                        <td className="p-3">Nhóm {sub.group} <span className="text-xs text-gray-500">({sub.studentName})</span></td>
+                                        <td className="p-3 font-bold text-teal-600">{sub.productName}</td>
+                                        <td className="p-3 text-orange-600 italic">
+                                            {sub.feedback ? `"${sub.feedback}"` : <span className="text-gray-400">Chưa có phản hồi</span>}
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            <Button3D onClick={() => handleViewSubmission(sub)} variant="teal" className="text-xs px-2 py-1">Mở</Button3D>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {submissions.filter(s => s.classId === user.class).length === 0 && <tr><td colSpan="5" className="p-4 text-center text-gray-400">Lớp chưa có sản phẩm nào được nộp.</td></tr>}
+                            </tbody>
+                        </table>
+                     </div>
+                 </div>
+             )}
+
+             {tab === 'notify' && (
+                 <div className="space-y-4 animate-fadeIn">
+                     {announcements.filter(a => a.classId === user.class).map(a => (
+                         <div key={a.id} className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded shadow-sm">
+                             <div className="flex justify-between mb-2">
+                                 <h4 className="font-bold text-yellow-800">{a.title}</h4><span className="text-xs text-yellow-600">{a.date}</span>
+                             </div>
+                             <p className="text-sm text-slate-700">{a.content}</p>
+                         </div>
+                     ))}
+                 </div>
+             )}
+
+             {tab === 'feedback' && (
+                 <div className="animate-fadeIn max-w-lg mx-auto text-center">
+                     <h3 className="font-bold text-lg mb-4 text-pink-600">Gửi lời nhắn đến Cô Giáo</h3>
+                     <textarea className="w-full border-2 border-pink-200 rounded-xl p-4 focus:border-pink-500 outline-none mb-4 shadow-inner" rows={5} placeholder="Em muốn hỏi về bài tập, hoặc chia sẻ điều gì đó..." value={msg} onChange={e => setMsg(e.target.value)} />
+                     <Button3D onClick={sendFeedback} className="w-full flex justify-center items-center gap-2">
+                         <Send size={18} /> Gửi đi
+                     </Button3D>
+                 </div>
+             )}
+
+             {tab === 'library' && (
+                 <div className="animate-fadeIn space-y-6">
+                     <div className="flex flex-wrap gap-4 items-center bg-indigo-50 p-4 rounded-xl border border-indigo-200">
+                         <Library className="text-indigo-600" size={24} />
+                         <label className="font-bold text-indigo-800">Thư viện Sản phẩm Lớp {user.class}</label>
+                         <select className="p-2 rounded border border-indigo-300 ml-auto max-w-xs focus:outline-none" value={libraryLesson} onChange={e => setLibraryLesson(e.target.value)}>
+                             <optgroup label="Học kì 1">{LESSONS.filter(l => l.term === 1).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>
+                             <optgroup label="Học kì 2">{LESSONS.filter(l => l.term === 2).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>
+                         </select>
+                     </div>
+
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         {submissions.filter(s => s.classId === user.class && s.lessonId === libraryLesson).map(sub => (
+                             <div key={sub.id} className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden flex flex-col">
+                                 <div className="bg-indigo-100 p-4 border-b border-indigo-200 flex justify-between items-start">
+                                     <div>
+                                         <h4 className="font-bold text-indigo-900 text-lg">{sub.productName}</h4>
+                                         <p className="text-sm text-indigo-700">Nhóm {sub.group} - Trưởng nhóm: {sub.studentName}</p>
+                                     </div>
+                                     <span className="bg-indigo-200 text-indigo-800 text-xs font-bold px-2 py-1 rounded whitespace-nowrap ml-2">{sub.productType}</span>
+                                 </div>
+                                 
+                                 <div className="p-4 flex-grow space-y-4">
+                                     <div className="flex justify-center">
+                                         <Button3D onClick={() => handleViewSubmission(sub)} variant="blue" className="text-sm px-4 py-2 flex items-center gap-2">
+                                             <BookOpen size={16} /> Mở Xem Sản Phẩm
+                                         </Button3D>
+                                     </div>
+
+                                     {/* Danh sách nhận xét của học sinh */}
+                                     <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-3 max-h-40 overflow-y-auto">
+                                         <h5 className="font-bold text-sm text-gray-700 border-b pb-1 flex items-center gap-1">
+                                             <MessageCircle size={14} /> Nhận xét từ các bạn
+                                         </h5>
+                                         {(!sub.peerFeedbacks || sub.peerFeedbacks.length === 0) ? (
+                                             <p className="text-xs text-gray-400 italic text-center py-2">Chưa có nhận xét nào. Hãy là người đầu tiên!</p>
+                                         ) : (
+                                             sub.peerFeedbacks.map(fb => (
+                                                 <div key={fb.id} className="bg-white p-2 rounded border shadow-sm text-sm">
+                                                     <div className="flex justify-between items-center mb-1">
+                                                         <span className="font-bold text-indigo-600 text-xs">{fb.studentName}</span>
+                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white
+                                                             ${fb.rating === 'Tốt' ? 'bg-green-500' : fb.rating === 'Khá' ? 'bg-blue-400' : 'bg-yellow-500'}`}>{fb.rating}</span>
+                                                     </div>
+                                                     <p className="text-gray-700 text-xs">{fb.comment}</p>
+                                                 </div>
+                                             ))
+                                         )}
+                                     </div>
+
+                                     {/* Form thêm nhận xét */}
+                                     {activePeerFeedback === sub.id ? (
+                                         <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-2 animate-fadeIn">
+                                             <div className="flex gap-2 items-center">
+                                                 <label className="text-sm font-bold text-indigo-800">Đánh giá:</label>
+                                                 <select className="p-1 text-sm border rounded outline-none" value={peerRating} onChange={e => setPeerRating(e.target.value)}>
+                                                     <option value="Tốt">Tốt</option><option value="Khá">Khá</option><option value="Đạt">Đạt</option>
+                                                 </select>
+                                             </div>
+                                             <textarea 
+                                                 className="w-full p-2 text-sm border rounded focus:border-indigo-400 outline-none" rows={2} placeholder="Viết nhận xét của bạn về sản phẩm này..."
+                                                 value={peerComment} onChange={e => setPeerComment(e.target.value)}
+                                             />
+                                             <div className="flex gap-2 justify-end mt-2">
+                                                 <button onClick={() => setActivePeerFeedback(null)} className="px-3 py-1 text-xs bg-gray-300 hover:bg-gray-400 rounded font-bold transition-colors">Hủy</button>
+                                                 <button onClick={() => handleSubmitPeerFeedback(sub.id)} className="px-3 py-1 text-xs bg-indigo-500 hover:bg-indigo-600 rounded text-white font-bold flex items-center gap-1"><ThumbsUp size={12} /> Gửi</button>
+                                             </div>
+                                         </div>
+                                     ) : (
+                                         <button onClick={() => { setActivePeerFeedback(sub.id); setPeerComment(''); setPeerRating('Đạt'); }} className="w-full py-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors border border-indigo-200">
+                                             + Thêm nhận xét
+                                         </button>
+                                     )}
+                                 </div>
+                             </div>
+                         ))}
+                         {submissions.filter(s => s.classId === user.class && s.lessonId === libraryLesson).length === 0 && (
+                             <div className="col-span-full text-center p-10 bg-white rounded-2xl border border-dashed border-gray-300">
+                                 <Library className="mx-auto text-gray-300 mb-2" size={48} />
+                                 <p className="text-gray-500 font-bold">Chưa có sản phẩm nào được nộp cho bài học này.</p>
+                             </div>
+                         )}
+                     </div>
+                 </div>
+             )}
+
+             {tab === 'grading' && (
+                 <div className="animate-fadeIn">
+                     <div className="bg-yellow-50 p-4 rounded-lg mb-4 text-yellow-800 text-sm">
+                         <span className="font-bold">Chức năng Nhóm Trưởng:</span> Bạn có thể nhập điểm cho các bạn trong lớp.
+                     </div>
+                     <select className="mb-4 p-2 border rounded" onChange={(e) => alert('Chức năng chọn bài đang xử lý...')}>
+                         <option>Chọn bài học để chấm...</option>
+                         {LESSONS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                     </select>
+                 </div>
+             )}
+
+             {tab === 'submit' && (
+                 <div className="animate-fadeIn max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-lg border border-pink-100">
+                     <h3 className="font-bold text-xl mb-6 text-pink-600 border-b-2 border-pink-100 pb-2">Nộp Sản Phẩm Nhóm</h3>
+                     <form onSubmit={handleSubmitProduct} className="space-y-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
+                                 <label className="block text-sm font-bold text-gray-700 mb-1">Chọn bài học:</label>
+                                 <select className="w-full p-2 border rounded-lg focus:border-pink-400 outline-none" value={submitLesson} onChange={e => setSubmitLesson(e.target.value)}>
+                                     {LESSONS.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                 </select>
+                             </div>
+                             <div>
+                                 <label className="block text-sm font-bold text-gray-700 mb-1">Nhóm của bạn:</label>
+                                 <select className="w-full p-2 border rounded-lg focus:border-pink-400 outline-none" value={submitGroup} onChange={e => setSubmitGroup(e.target.value)}>
+                                     {GROUPS.map(g => <option key={g} value={g}>Nhóm {g}</option>)}
+                                 </select>
+                             </div>
+                         </div>
+                         
+                         <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Tên sản phẩm / Dự án:</label>
+                             <input type="text" className="w-full p-2 border rounded-lg focus:border-pink-400 outline-none" placeholder="VD: Bản thiết kế nhà thông minh..." value={productName} onChange={e => setProductName(e.target.value)} disabled={isSubmitting} />
+                         </div>
+
+                         <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Loại sản phẩm:</label>
+                             <select className="w-full p-2 border rounded-lg focus:border-pink-400 outline-none" value={productType} onChange={e => setProductType(e.target.value)} disabled={isSubmitting}>
+                                 {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                             </select>
+                         </div>
+
+                         <div className="border-t border-pink-100 pt-4 mt-2">
+                             <label className="block text-sm font-bold text-gray-700 mb-2">Đính kèm Bài làm (Chọn 1 trong 2 cách):</label>
+                             <div className="flex flex-col md:flex-row gap-4">
+                                 <div className="flex-1 border-2 border-dashed border-pink-300 rounded-xl p-4 text-center bg-pink-50 hover:bg-pink-100 transition-colors relative">
+                                     <input type="file" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isSubmitting}/>
+                                     <Upload className="mx-auto text-pink-400 mb-2" size={28} />
+                                     <p className="text-sm text-pink-700 font-bold">{selectedFile ? selectedFile.name : "Tải tệp tin lên Drive GV"}</p>
+                                     <p className="text-xs text-pink-400 mt-1">(Tối đa 50MB. Hình ảnh, Word, PDF...)</p>
+                                 </div>
+                                 <div className="flex items-center justify-center"><span className="font-bold text-gray-400 text-sm">HOẶC</span></div>
+                                 <div className="flex-1 flex flex-col justify-center">
+                                     <input type="url" className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-pink-400 outline-none text-sm" placeholder="Dán Link Google Drive/Youtube..." value={productLink} onChange={e => setProductLink(e.target.value)} disabled={isSubmitting} />
+                                     <p className="text-xs text-gray-500 mt-2 italic">* Dùng cách dán Link này nếu sản phẩm là Video hoặc File có dung lượng lớn hơn 50MB.</p>
+                                 </div>
+                             </div>
+                         </div>
+
+                         <div className="pt-4">
+                             <Button3D type="submit" variant="pink" className="w-full flex justify-center items-center gap-2 py-3 text-lg" disabled={isSubmitting}>
+                                 {isSubmitting ? <><RefreshCw className="animate-spin" size={20} /> Đang tải file lên hệ thống...</> : <><Send size={20} /> Nộp Sản Phẩm Nhóm</>}
+                             </Button3D>
+                         </div>
+                     </form>
+                 </div>
+             )}
+         </div>
+      </div>
+    );
+  };
+
+  const LoginScreen = ({ role, onBack }) => {
+      const [val1, setVal1] = useState(''); // user/code
+      const [val2, setVal2] = useState(''); // pass
+      const [error, setError] = useState('');
+
+      const handleLogin = (e) => {
+          e.preventDefault();
+          setError('');
+          if (role === 'gv') {
+              if(!handleLoginGV(val1, val2)) setError('Sai tài khoản hoặc mật khẩu!');
+          } else {
+              if(!handleLoginHS(val1, val2)) setError('Mã học sinh không đúng hoặc chưa có trong hệ thống!');
+          }
+      }
+
+      return (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fadeIn">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border-4 border-pink-100 relative">
+                  <button onClick={onBack} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X /></button>
+                  <h2 className="text-3xl font-bold text-center mb-6 text-pink-600 font-fancy">
+                      {role === 'gv' ? 'Đăng Nhập Giáo Viên' : 'Đăng Nhập Học Sinh'}
+                  </h2>
+                  <form onSubmit={handleLogin} className="space-y-4">
+                      <div>
+                          <label className="block text-sm font-bold text-gray-700 mb-1">{role === 'gv' ? 'Tài khoản' : 'Mã Học Sinh'}</label>
+                          <input type="text" className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-pink-400 outline-none transition-colors" value={val1} onChange={e => setVal1(e.target.value)} placeholder={role === 'gv' ? 'admin' : 'Nhập mã số...'} />
+                      </div>
+                      {(role === 'gv' || role === 'hs') && (
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-1">{role === 'gv' ? 'Mật khẩu' : 'Mật khẩu (Chỉ dành cho Nhóm trưởng)'}</label>
+                              <input type="password" className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-pink-400 outline-none transition-colors" value={val2} onChange={e => setVal2(e.target.value)} placeholder={role === 'gv' ? 'admin' : 'Bỏ trống nếu là HS thường'} />
+                          </div>
+                      )}
+                      {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+                      <Button3D type="submit" className="w-full py-3 mt-4 text-lg">Đăng Nhập</Button3D>
+                  </form>
+                  {role === 'hs' && students.length === 0 && (
+                      <div className="mt-4 text-center text-xs text-gray-400">
+                          (Demo: Nhập mã "demo" để thử quyền Nhóm Trưởng nếu chưa có dữ liệu GV nhập)
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  }
+
+  // --- RENDER LAYOUT CHÍNH ---
+
+  return (
+    <div className="min-h-screen bg-pink-50 font-tahoma text-slate-700 flex flex-col relative overflow-hidden">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Pacifico&display=swap');
+        .font-fancy { font-family: 'Dancing Script', cursive; }
+        .font-tahoma { font-family: Tahoma, sans-serif; }
+        @keyframes float { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-20px) rotate(10deg); } 100% { transform: translateY(0px) rotate(0deg); } }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
+      {/* TOP BAR */}
+      <header className="bg-white/90 backdrop-blur shadow-md sticky top-0 z-50 border-b border-pink-100">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
+                <div className="bg-pink-500 text-white p-2 rounded-lg shadow-lg"><Home size={24} /></div>
+                <span className="font-bold text-xl hidden md:block text-pink-600 font-fancy">Công Nghệ 6</span>
+            </div>
+
+            <div className="flex items-center gap-4">
+                <DigitalClock />
+                {user ? (
+                    <div className="flex items-center gap-4">
+                        <span className="font-bold text-pink-700 hidden sm:block">Xin chào, {user.name}</span>
+                        <Button3D onClick={logout} variant="red" className="text-sm px-3 py-1"><LogOut size={16} /></Button3D>
+                    </div>
+                ) : (
+                    <div className="flex gap-2">
+                        <Button3D onClick={() => setView('login_gv')} variant="blue" className="text-sm px-3 py-1">GV Đăng Nhập</Button3D>
+                        <Button3D onClick={() => setView('login_hs')} variant="pink" className="text-sm px-3 py-1">HS Đăng Nhập</Button3D>
+                    </div>
+                )}
+            </div>
+        </div>
+      </header>
+
+      {/* BODY CONTENT */}
+      <main className="flex-grow p-4 md:p-6 relative z-0">
+          <div className="max-w-7xl mx-auto">
+            {view === 'home' && <HomeScreen />}
+            {view === 'login_gv' && <LoginScreen role="gv" onBack={() => setView('home')} />}
+            {view === 'login_hs' && <LoginScreen role="hs" onBack={() => setView('home')} />}
+            {view === 'dashboard_gv' && <TeacherDashboard />}
+            {view === 'dashboard_hs' && <StudentDashboard />}
+          </div>
+      </main>
+
+      {/* FOOTER - RUNNING TEXT */}
+      <footer className="bg-pink-600 text-white py-2 overflow-hidden relative shadow-inner">
+          <div className="whitespace-nowrap animate-[marquee_20s_linear_infinite] font-bold text-sm">
+             <span className="inline-block px-4">Bản quyền thuộc về cô Nguyễn Thị Ngân Hà – trường THCS Đinh Lạc, xã Bảo Thuận</span>
+             <span className="inline-block px-4"> | </span>
+             <span className="inline-block px-4">Chương trình theo dõi quá trình học tập môn Công nghệ 6</span>
+             <span className="inline-block px-4"> | </span>
+             <span className="inline-block px-4">Chúc các em học sinh học tập tốt và đạt nhiều thành tích cao!</span>
+          </div>
+          <style>{`
+            @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+          `}</style>
+      </footer>
+    </div>
+  );
+}
