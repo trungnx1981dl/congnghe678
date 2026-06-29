@@ -1,0 +1,9 @@
+<CustomTab id="TabCustomND30">
+  <Group id="GroupND30">
+    <Label resid="GroupLabel" />
+    </Group>
+  <Label resid="TabLabel" />
+</CustomTab>
+
+... (Trong phần Resources ở cuối file) ...
+<bt:String id="TabLabel" DefaultValue="ND 30" />
